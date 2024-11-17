@@ -1,4 +1,4 @@
-use actix_web::{web, App, HttpServer, Responder, HttpResponse};
+use actix_web::{web, App, HttpServer, Responder};
 use serde::Deserialize;
 use std::env;
 
@@ -11,16 +11,13 @@ struct FileInfo {
     content: Vec<u8>,
 }
 
-async fn upload(file: web::Json<FileInfo>) -> impl Responder {
-    routes::upload::handle_upload(file.into_inner()).await
-}
-
-async fn compress(file: web::Json<FileInfo>) -> impl Responder {
-    routes::compress::handle_compress(file.into_inner()).await
-}
-
-async fn decompress(file: web::Json<FileInfo>) -> impl Responder {
-    routes::decompress::handle_decompress(file.into_inner()).await
+async fn handle_action(action: web::Path<String>, file: web::Json<FileInfo>) -> impl Responder {
+    match action.as_str() {
+        "upload" => routes::upload::handle_upload(file.into_inner()).await,
+        "compress" => routes::compress::handle_compress(file.into_inner()).await,
+        "decompress" => routes::decompress::handle_decompress(file.into_inner()).await,
+        _ => HttpResponse::NotFound().finish(),
+    }
 }
 
 #[actix_web::main]
@@ -30,9 +27,7 @@ async fn main() -> std::io::Result<()> {
 
     HttpServer::new(|| {
         App::new()
-            .route("/upload", web::post().to(upload))
-            .route("/compress", web::post().to(compress))
-            .route("/decompress", web::post().to(decompress))
+            .route("/{action}", web::post().to(handle_action))
     })
     .bind(format!("{}:{}", config.server_host, config.server_port))?
     .run()
